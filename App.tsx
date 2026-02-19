@@ -4,7 +4,7 @@ import { CharacterType, GameStatus, SoundSettings, Difficulty } from './types';
 import GameCanvas from './components/GameCanvas';
 import Leaderboard from './components/Leaderboard';
 import { DOG_SPRITE, CAT_SPRITE, RABBIT_SPRITE, MAX_HEALTH, FINISHED_DOG_IMG, FINISHED_CAT_IMG, FINISHED_RABBIT_IMG } from './constants';
-import { getSoundSettings, saveSoundSettings, getUnlockedLevel, saveUnlockedLevel, playShutterSound, playVictorySound } from './utils';
+import { getSoundSettings, saveSoundSettings, getUnlockedLevel, saveUnlockedLevel, playShutterSound, playVictorySound, unlockPhoto, getUnlockedPhotos, downloadImage } from './utils';
 
 const SpritePreview = ({ sprite, active, size = 5 }: { sprite: any, active?: boolean, size?: number }) => {
     return (
@@ -21,6 +21,32 @@ const SpritePreview = ({ sprite, active, size = 5 }: { sprite: any, active?: boo
                      <div key={i} style={{ width: size, height: size, backgroundColor: c === 0 ? 'transparent' : sprite.palette[c] }} />
                  ))}
              </div>
+        </div>
+    );
+};
+
+// Simple Photo Modal Component
+const PhotoModal = ({ url, onClose }: { url: string, onClose: () => void }) => {
+    return (
+        <div className="fixed inset-0 bg-black/90 z-[80] flex items-center justify-center p-4 animate-in fade-in duration-300">
+            <div className="relative max-w-lg w-full bg-white p-2 rounded-xl shadow-2xl transform rotate-1">
+                <button 
+                    onClick={onClose}
+                    className="absolute -top-4 -right-4 bg-red-500 hover:bg-red-600 text-white rounded-full w-10 h-10 font-bold border-4 border-white shadow-lg z-10 flex items-center justify-center"
+                >
+                    ✕
+                </button>
+                <img src={url} alt="Memory" className="w-full h-auto rounded-lg border border-gray-200" />
+                <div className="absolute bottom-4 right-4">
+                     <button 
+                        onClick={() => downloadImage(url)}
+                        className="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-full shadow-lg border-2 border-white transition-transform active:scale-95"
+                        title="Baixar Foto"
+                     >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256"><path d="M224,152a8,8,0,0,1,8,8v32a16,16,0,0,1-16,16H40a16,16,0,0,1-16-16V160a8,8,0,0,1,16,0v32H216V160A8,8,0,0,1,224,152Zm-82.34,45.66a8,8,0,0,0,11.32,0l48-48a8,8,0,0,0-11.32-11.32L136,192.69V40a8,8,0,0,0-16,0V192.69L66.34,138.34a8,8,0,0,0-11.32,11.32Z"></path></svg>
+                     </button>
+                </div>
+            </div>
         </div>
     );
 };
@@ -42,6 +68,9 @@ const App: React.FC = () => {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [showLeaderboardShortcut, setShowLeaderboardShortcut] = useState(false);
   const [soundSettings, setSoundSettings] = useState<SoundSettings>(getSoundSettings());
+  
+  const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
+  const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
 
   const countdownInterval = useRef<number | null>(null);
 
@@ -76,10 +105,19 @@ const App: React.FC = () => {
   };
 
   const handleVictory = () => {
-    // Special Ending Logic
     if (level === 3 && difficulty === Difficulty.NORMAL) {
-        // Play shutter sound for special ending
+        // Special Ending Logic: Unlock Photo
         playShutterSound();
+        let photoId = '';
+        let photoUrl = '';
+        if (selectedChar === CharacterType.DOG) { photoId = 'DOG'; photoUrl = FINISHED_DOG_IMG; }
+        else if (selectedChar === CharacterType.CAT) { photoId = 'CAT'; photoUrl = FINISHED_CAT_IMG; }
+        else if (selectedChar === CharacterType.RABBIT) { photoId = 'RABBIT'; photoUrl = FINISHED_RABBIT_IMG; }
+        
+        if (photoId) {
+            unlockPhoto(photoId);
+            setViewingPhoto(photoUrl);
+        }
     } else {
         // Normal victory sound
         playVictorySound();
@@ -139,6 +177,9 @@ const App: React.FC = () => {
             window.removeEventListener('touchstart', handleInteraction);
         };
     }
+    if (status === GameStatus.GALLERY || status === GameStatus.MENU) {
+        setGalleryPhotos(getUnlockedPhotos());
+    }
   }, [status]);
 
   useEffect(() => {
@@ -156,19 +197,61 @@ const App: React.FC = () => {
 
   const isRabbitUnlocked = unlockedLevel >= 4;
 
-  const getVictoryImage = () => {
-      switch(selectedChar) {
-          case CharacterType.CAT: return FINISHED_CAT_IMG;
-          case CharacterType.RABBIT: return FINISHED_RABBIT_IMG;
-          default: return FINISHED_DOG_IMG;
-      }
-  }
+  const renderGallery = () => {
+    const photos = [
+        { id: 'DOG', url: FINISHED_DOG_IMG, label: 'Caramelo' },
+        { id: 'CAT', url: FINISHED_CAT_IMG, label: 'Laranja' },
+        { id: 'RABBIT', url: FINISHED_RABBIT_IMG, label: 'Neve' },
+    ];
+
+    return (
+        <div className="absolute inset-0 bg-[#1a1c2c] flex flex-col items-center justify-center z-50 p-4 md:p-8 overflow-y-auto custom-scrollbar">
+             <div className="bg-[#2d3748] p-6 md:p-8 rounded-2xl border-4 border-yellow-500 shadow-2xl max-w-2xl w-full text-center flex-shrink-0 animate-in zoom-in duration-300">
+                <h2 className="text-xl md:text-3xl text-yellow-400 mb-8 font-bold tracking-tight uppercase underline decoration-yellow-600 decoration-4 underline-offset-8">GALERIA DE MEMÓRIAS</h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    {photos.map((photo) => {
+                        const isUnlocked = galleryPhotos.includes(photo.id);
+                        return (
+                            <div key={photo.id} className="flex flex-col items-center group">
+                                <div 
+                                    onClick={() => isUnlocked && setViewingPhoto(photo.url)}
+                                    className={`relative w-full aspect-[4/5] bg-gray-900 rounded-xl border-4 overflow-hidden transition-all duration-300 ${isUnlocked ? 'border-white cursor-pointer hover:scale-105 hover:border-blue-400 shadow-lg' : 'border-gray-700 opacity-60'}`}
+                                >
+                                    {isUnlocked ? (
+                                        <img src={photo.url} alt={photo.label} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600">
+                                            <span className="text-4xl mb-2">🔒</span>
+                                            <span className="text-[8px] uppercase font-bold px-2">Complete o Nível 3 (Normal) com {photo.label}</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <span className={`mt-3 text-[10px] font-bold uppercase tracking-widest ${isUnlocked ? 'text-white' : 'text-gray-600'}`}>{photo.label}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <button onClick={() => setStatus(GameStatus.MENU)} className="bg-gray-700 text-white py-4 px-8 rounded-xl border-b-4 border-gray-900 hover:bg-gray-600 font-bold text-xs uppercase tracking-widest shadow-xl active:translate-y-1 active:border-b-0">Voltar ao Menu</button>
+             </div>
+        </div>
+    );
+  };
 
   return (
     <div className="fixed inset-0 bg-[#1a1c2c] flex flex-col items-center overflow-hidden selection:bg-blue-500 font-['Press_Start_2P']">
       
+      {/* PHOTO MODAL OVERLAY */}
+      {viewingPhoto && (
+          <PhotoModal url={viewingPhoto} onClose={() => setViewingPhoto(null)} />
+      )}
+
+      {/* GALLERY SCREEN */}
+      {status === GameStatus.GALLERY && renderGallery()}
+
       {/* HUD LAYER */}
-      {(status !== GameStatus.SPLASH) && (
+      {(status !== GameStatus.SPLASH && status !== GameStatus.GALLERY) && (
         <div className="absolute top-0 left-0 right-0 p-4 md:p-6 flex justify-between items-start z-40 pointer-events-none">
             <div className="flex flex-col pointer-events-auto">
               <h1 className="text-[10px] md:text-lg text-yellow-400 font-bold tracking-tighter drop-shadow-lg" style={{ textShadow: '2px 2px 0 #000' }}>
@@ -221,20 +304,23 @@ const App: React.FC = () => {
       <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-black">
         <div className="w-full h-full relative flex items-center justify-center bg-[#1a1c2c]">
           <div className="relative w-full h-auto aspect-[1/1.5] max-w-[600px] max-h-screen shadow-2xl overflow-hidden ring-4 ring-black/50 md:rounded-3xl">
-            <GameCanvas 
-                status={status === GameStatus.SPLASH ? GameStatus.MENU : status}
-                character={selectedChar}
-                difficulty={difficulty}
-                level={level}
-                nickname={nickname}
-                onUpdateScore={setScore}
-                onUpdateKibble={setKibble}
-                onUpdateHealth={setHealth}
-                onGameOver={handleGameOver}
-                onVictory={handleVictory}
-                isPaused={isPaused || countdown !== null || status === GameStatus.SPLASH}
-            />
-            {isPaused && countdown === null && status === GameStatus.PLAYING && (
+            {status !== GameStatus.GALLERY && (
+                <GameCanvas 
+                    status={status === GameStatus.SPLASH ? GameStatus.MENU : status}
+                    character={selectedChar}
+                    difficulty={difficulty}
+                    level={level}
+                    nickname={nickname}
+                    onUpdateScore={setScore}
+                    onUpdateKibble={setKibble}
+                    onUpdateHealth={setHealth}
+                    onGameOver={handleGameOver}
+                    onVictory={handleVictory}
+                    isPaused={isPaused || countdown !== null || status === GameStatus.SPLASH || !!viewingPhoto}
+                />
+            )}
+            
+            {isPaused && countdown === null && status === GameStatus.PLAYING && !viewingPhoto && (
               <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center backdrop-blur-md z-30">
                  <div className="text-white text-3xl md:text-5xl font-bold uppercase tracking-widest animate-pulse italic text-center px-4" style={{ textShadow: '4px 4px 0 #000' }}>PAUSADO</div>
                  <button onClick={togglePause} className="mt-8 bg-blue-600 px-8 py-4 rounded-xl border-b-4 border-blue-800 text-sm md:text-lg font-bold uppercase active:translate-y-1 active:border-b-0">Continuar</button>
@@ -344,7 +430,7 @@ const App: React.FC = () => {
                     </div>
 
                     {/* Difficulty */}
-                    <div className="mb-8">
+                    <div className="mb-6">
                         <label className="block text-[8px] text-gray-400 mb-4 text-left font-bold uppercase tracking-widest">Dificuldade</label>
                         <div className="flex gap-2">
                             <button onClick={() => setDifficulty(Difficulty.NORMAL)} className={`flex-1 py-3 px-2 rounded-xl border-2 text-[8px] font-bold uppercase transition-all ${difficulty === Difficulty.NORMAL ? 'bg-blue-600 border-blue-400 text-white scale-105 shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'bg-gray-800 border-gray-700 text-gray-500'}`}>Normal</button>
@@ -352,7 +438,13 @@ const App: React.FC = () => {
                         </div>
                     </div>
 
-                    <button onClick={startGame} className="w-full bg-blue-600 text-white py-5 rounded-2xl border-b-8 border-blue-800 active:border-b-0 active:translate-y-2 font-bold hover:bg-blue-500 transition-all text-xs md:text-sm tracking-widest shadow-2xl">COMEÇAR AVENTURA</button>
+                    <div className="flex gap-4">
+                        <button onClick={startGame} className="flex-[2] bg-blue-600 text-white py-5 rounded-2xl border-b-8 border-blue-800 active:border-b-0 active:translate-y-2 font-bold hover:bg-blue-500 transition-all text-xs md:text-sm tracking-widest shadow-2xl">COMEÇAR AVENTURA</button>
+                        <button onClick={() => setStatus(GameStatus.GALLERY)} className="flex-1 bg-yellow-600 text-white py-5 rounded-2xl border-b-8 border-yellow-800 active:border-b-0 active:translate-y-2 font-bold hover:bg-yellow-500 transition-all text-[8px] md:text-xs uppercase tracking-widest shadow-2xl flex flex-col items-center justify-center">
+                            <span>📷</span>
+                            <span>Galeria</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         )}
@@ -409,7 +501,7 @@ const App: React.FC = () => {
         )}
 
         {/* VICTORY MODAL */}
-        {status === GameStatus.VICTORY && (
+        {status === GameStatus.VICTORY && !viewingPhoto && (
             <div className="absolute inset-0 bg-green-950/90 flex flex-col items-center justify-center z-[70] p-4 md:p-8 overflow-y-auto custom-scrollbar">
                  <div className="bg-gray-900 p-6 md:p-10 rounded-2xl border-4 border-green-500 shadow-[0_0_60px_rgba(34,197,94,0.4)] text-center max-w-md w-full flex-shrink-0 animate-in zoom-in duration-300">
                     <h2 className="text-2xl md:text-4xl text-green-400 mb-2 font-bold tracking-tighter uppercase" style={{ textShadow: '4px 4px 0 #000' }}>{level < 3 ? `${getLevelName(level)} CONCLUÍDA!` : 'AVENTURA FINALIZADA!'}</h2>
@@ -417,20 +509,6 @@ const App: React.FC = () => {
                         {level === 1 ? 'Você atravessou a cidade!' : (level === 2 ? 'Você atravessou o interior!' : 'Você finalmente chegou em casa!')}
                     </p>
                     
-                    {/* SPECIAL ENDING IMAGE */}
-                    {level === 3 && difficulty === Difficulty.NORMAL && (
-                        <div className="relative rotate-[-2deg] bg-white p-3 pb-10 shadow-xl mb-8 transform transition-transform hover:rotate-0 hover:scale-105 duration-300 max-w-[80%] mx-auto">
-                            <img 
-                                src={getVictoryImage()} 
-                                alt="Final Victory" 
-                                className="w-full h-auto border border-gray-200 block"
-                            />
-                            <div className="absolute bottom-2 left-0 right-0 text-center text-gray-600 font-['Courier_New'] font-bold text-[10px]">
-                                {nickname} & {selectedChar === CharacterType.DOG ? 'Caramelo' : (selectedChar === CharacterType.CAT ? 'Laranja' : 'Neve')}
-                            </div>
-                        </div>
-                    )}
-
                     {level === 3 && difficulty !== Difficulty.NORMAL && unlockedLevel < 4 && (
                         <p className="text-[8px] text-yellow-500 mb-4 italic">Dica: Termine no modo NORMAL para ver o final secreto!</p>
                     )}

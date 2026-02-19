@@ -128,6 +128,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     isJumping: false,
     jumpInputActive: false,
     appliedJumpBoost: false, 
+    landingFrame: 0, // Animation frame counter for landing squash effect
     onPlatform: null as Entity | null,
     obstacles: [] as Entity[],
     clouds: [] as Cloud[],
@@ -174,6 +175,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       isJumping: false,
       jumpInputActive: false,
       appliedJumpBoost: false,
+      landingFrame: 0,
       onPlatform: null,
       obstacles: [],
       clouds: initClouds(),
@@ -201,6 +203,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       state.isJumping = true;
       state.appliedJumpBoost = false; 
       state.onPlatform = null;
+      state.landingFrame = 0; // Reset landing animation on jump
       playJumpSound(character);
     }
   };
@@ -261,6 +264,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         state.playerY += state.playerVelY;
 
         if (state.playerY > GROUND_Y - playerHeight) {
+          if (state.playerVelY > 0.5) state.landingFrame = 8; // Trigger landing squash
           state.playerY = GROUND_Y - playerHeight;
           state.playerVelY = 0;
           state.isJumping = false;
@@ -405,6 +409,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
           if (state.playerVelY >= 0 && obs.type === 'PLATFORM') {
             const playerFeet = state.playerY + playerHeight;
             if (playerFeet <= obs.y + 14 && playerFeet >= obs.y - 8 && PLAYER_X < obs.x + obs.width - 5 && PLAYER_X + playerWidth > obs.x + 5) {
+              if (state.playerVelY > 0.5) state.landingFrame = 8; // Trigger landing squash
               state.playerY = obs.y - playerHeight;
               state.playerVelY = 0; state.isJumping = false; state.onPlatform = obs; state.appliedJumpBoost = false;
             }
@@ -573,7 +578,31 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       if (state.invincibleFrames % 10 < 5) {
         const isRunning = Math.floor(state.frame / 6) % 2 === 0;
         const activeSprite = state.isJumping ? runPlayerSprite : (isRunning ? runPlayerSprite : basePlayerSprite);
-        drawSprite(ctx, activeSprite, PLAYER_X, state.playerY);
+        
+        if (state.landingFrame > 0) {
+            state.landingFrame--;
+            // Simple squash and stretch animation: wider and shorter
+            const progress = state.landingFrame / 8; // Normalized progress 1.0 -> 0.0
+            const squashFactor = progress * 0.3; // Max 30% squash at impact
+            
+            const scaleX = 1 + squashFactor;
+            const scaleY = 1 - squashFactor;
+            
+            // Pivot point is bottom-center of the sprite to keep feet on ground
+            const pivotX = PLAYER_X + playerWidth / 2;
+            const pivotY = state.playerY + playerHeight;
+            
+            ctx.save();
+            ctx.translate(pivotX, pivotY);
+            ctx.scale(scaleX, scaleY);
+            ctx.translate(-pivotX, -pivotY);
+            
+            drawSprite(ctx, activeSprite, PLAYER_X, state.playerY);
+            
+            ctx.restore();
+        } else {
+            drawSprite(ctx, activeSprite, PLAYER_X, state.playerY);
+        }
       }
       animationFrameId = requestAnimationFrame(render);
     };

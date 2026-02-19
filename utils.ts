@@ -4,6 +4,7 @@ import { CharacterType, LeaderboardEntry, SpriteMap, SoundSettings } from './typ
 const STORAGE_KEY = 'pet_rescue_leaderboard';
 const SETTINGS_KEY = 'pet_rescue_settings';
 const PROGRESS_KEY = 'pet_rescue_unlocked_level';
+const GALLERY_KEY = 'pet_rescue_gallery';
 
 export const getSoundSettings = (): SoundSettings => {
   try {
@@ -31,6 +32,23 @@ export const saveUnlockedLevel = (level: number) => {
   const current = getUnlockedLevel();
   if (level > current) {
     localStorage.setItem(PROGRESS_KEY, level.toString());
+  }
+};
+
+export const getUnlockedPhotos = (): string[] => {
+  try {
+    const data = localStorage.getItem(GALLERY_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+export const unlockPhoto = (photoId: string) => {
+  const current = getUnlockedPhotos();
+  if (!current.includes(photoId)) {
+    current.push(photoId);
+    localStorage.setItem(GALLERY_KEY, JSON.stringify(current));
   }
 };
 
@@ -72,6 +90,23 @@ export const drawSprite = (
     ctx.fillStyle = color;
     ctx.fillRect(x + col * pixelSize, y + row * pixelSize, pixelSize, pixelSize);
   });
+};
+
+export const downloadImage = async (url: string) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = 'pet_rescue_photo.png';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  } catch (e) {
+    window.open(url, '_blank');
+  }
 };
 
 let audioCtx: AudioContext | null = null;

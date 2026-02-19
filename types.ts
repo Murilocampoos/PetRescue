@@ -4,7 +4,8 @@ export enum GameStatus {
   MENU = 'MENU',
   PLAYING = 'PLAYING',
   GAME_OVER = 'GAME_OVER',
-  VICTORY = 'VICTORY'
+  VICTORY = 'VICTORY',
+  GALLERY = 'GALLERY'
 }
 
 export enum CharacterType {

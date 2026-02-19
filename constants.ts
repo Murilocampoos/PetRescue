@@ -10,10 +10,10 @@ export const INITIAL_SPEED = 3;
 export const MAX_HEALTH = 3;
 export const WIN_SCORE = 100;
 
-// Placeholder URLs - Substitua pelas URLs reais das suas imagens ou importe-as se estiver usando um bundler
-export const FINISHED_DOG_IMG = "https://placehold.co/600x500/E69F25/FFF?text=finished_dog2";
-export const FINISHED_CAT_IMG = "https://placehold.co/600x500/EA7625/FFF?text=finished_cat2";
-export const FINISHED_RABBIT_IMG = "https://placehold.co/600x500/FDA4AF/FFF?text=finished_bunny2";
+// Imagens de Vitória (Direct Links)
+export const FINISHED_DOG_IMG = "https://i.imgur.com/Sn7HtED.png";
+export const FINISHED_CAT_IMG = "https://i.imgur.com/D48awmx.png";
+export const FINISHED_RABBIT_IMG = "https://i.imgur.com/MxFKQSL.png";
 
 // Pixel Art Bitmaps (0 = transparent, 1 = main, 2 = secondary/darker, 3 = highlight/light, 4 = eye/nose/black, 5 = extra)
 
